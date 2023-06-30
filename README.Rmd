@@ -14,7 +14,7 @@ knitr::opts_chunk$set(fig.align = 'center')
 
 O respositório tem como finalidade armazenar os scripts, dados, figuras e tabelas criados para a pesquisa de Jonathan Morais Barcellos Ferreira e Gabriel Delias de Sousa Simões para o [II Congresso Internacional "Dignidade Humana em tempos de (pós) pandemia: direito e democracia no Brasil contemporâneo"](https://www.even3.com.br/ii-congresso-internacional-dignidade-humana-em-tempos-de-pandemia-direito-e-democracia-no-brasil-contemporaneo-316015/).
 
-O artigo-produto da pesquisa foi submetido para publicação e o preprint pode ser obtido em: [link]()
+O artigo-produto da pesquisa foi submetido para publicação e o preprint pode ser obtido em no [ReserachGate](https://www.researchgate.net/publication/371952303_A_POLITIZACAO_DO_JUDICIARIO_UMA_POLITICA_DE_JUDICIALIZACAO_DA_POLITICA?_sg%5B0%5D=PEzOgh5rg8deKI8NcKQA6ol1hlNrYLmbCeAqyR0K3nM1djEy1daHGd9M3ACijxFH6QJBQ57hSV8gJaFsBlZ9bgk862myZwaTjJOCjd5I.HNYbkRyvm0K4I5ERkKIoCkssxQnp5BPDMZtmmsr7CqGLuhxaOQMVB91BI-U24oI9OBudEqV_K_I8hHZaoaygpQ).
 
 Os dados dessa pesquisa podem ser reutilizados desde que citada a fonte.
 
@@ -139,3 +139,78 @@ tabela_decisoes <- tabela_decisoes |>
 		ADPF != '1022'          # 1022
 	)
 ```
+
+Salvamos os arquivos em `.csv` para serem utilizados por quem não usa o R:
+
+```{r eval = FALSE}
+
+# Salva os dados brutos em csv
+write.csv(tabela_decisoes, 'DATA/raw_decisoes.csv')
+write.csv(tabela_info, 'DATA/raw_info.csv')
+write.csv(tabela_partes, 'DATA/raw_partes.csv')
+write.csv(tabela_relator, 'DATA/raw_relator.csv')
+```
+
+# Manipulação dos dados
+
+## Tabela_info
+
+O primeiro tratamento realizado foi na tabela_info. Dividimos os assuntos (que estavam agrupados em uma única observação por coluna) e colocamos cada assunto em uma coluna própria e depois empilhamos as observações. Por fim, removemos os espaços desnecessários, as observações vazias ou com string em branco e deletamos os valores duplicados. A coluna ajuizamento foi transformada no tipo `date`.
+
+```{r}
+
+# Separa os assuntos e depois coloca todos em uma única coluna
+tabela_info <- tabela_info |>
+  # separa os assuntos principais
+  tidyr::separate_wider_delim(
+    3,
+    delim = "\r",
+    names_sep = "",
+    too_few = "align_start"
+  ) |>
+  # separa os assuntos secundários
+  tidyr::separate_wider_delim(
+    3:9,
+    delim = "|",
+    names_sep = "",
+    too_few = "align_start"
+  ) |>
+  # coloca em uma única coluna
+  tidyr::pivot_longer(cols = 3:20)
+
+# remove espaços em branco
+tabela_info$value <- tabela_info$value |> stringr::str_squish()
+
+# remove a coluna name
+tabela_info$name <- NULL
+
+# remove valores duplicados, NA, vazios e limpa nomes das colunas
+tabela_info <- tabela_info |>
+  dplyr::distinct() |>
+  tidyr::drop_na() |>
+  dplyr::filter(value != "") |>
+  janitor::clean_names()
+
+# transforma os valores de ajuizamento em tipo data
+tabela_info$ajuizamento <-
+  tabela_info$ajuizamento |>
+  as.Date("%d/%m/%Y")
+
+# altera o nome da coluna 'value' para 'assunto'
+tabela_info <- tabela_info |> 
+	dplyr::rename(
+		assunto = value)
+
+# cria uma coluna apenas com o ano
+tabela_info <- tabela_info |>
+	dplyr::mutate(
+		ano = format(ajuizamento, '%Y')
+	)
+```
+
+Salvamos o arquivo em `.csv` para ser utilizado por quem não usa R:
+
+```{r}
+write.csv(tabela_info, 'DATA/cleaned_info.csv')
+```
+
